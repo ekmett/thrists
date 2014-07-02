@@ -1,28 +1,28 @@
 {-# LANGUAGE GADTs, BangPatterns #-}
 {-# OPTIONS_GHC -Wall #-}
 
-data P a
-  = P a a
+data P r a c where
+  P :: r b c -> r a b -> P r a c
 
-data D a
-  = D0
-  | D1 a
-  | D2 a a
+data D r a b where
+  D0 :: D r a a
+  D1 :: r a b -> D r a b
+  D2 :: r b c -> r a b -> D r a c
 
-data L a b where
-  L :: a -> !(L (P a) b) -> L a b
-  NL :: L a a
+data L l m a c where
+  L :: l b c -> !(L (P l) m a b) -> L l m a c
+  NL :: L r r a a
 
-data R a b where
-  R :: !(R a (P b)) -> b -> R a b
-  NR :: R a a
+data R l m a c where
+  R :: !(R l (P m) b c) -> m a b -> R l m a c
+  NR :: R r r a a
 
-data Q a where
-  Q0 :: Q a
-  Q1 :: a -> Q a
-  Q :: !(D a) -> !(L (P a) b) -> !(Q b) -> !(R b (P a)) -> !(D a) -> Q a
+data Q r a b where
+  Q0 :: Q r a a
+  Q1 :: r a b -> Q r a b
+  Q :: !(D r e f) -> !(L (P r) m d e) -> !(Q m c d) -> !(R m (P r) b c) -> !(D r a b) -> Q r a f
 
-(<|) :: a -> Q a -> Q a
+(<|) :: r b c -> Q r a b -> Q r a c
 a <| Q0                                      = Q1 a
 a <| Q1 b                                    = Q (D1 a) NL Q0 NR (D1 b)
 a <| Q D0 l m r s                            = Q (D1 a) l m r s
@@ -30,7 +30,7 @@ a <| Q (D1 b) l (Q (D2 c d) l' m' r' s') r s = Q (D2 a b) l (dcons D0 (P c d) l'
 a <| Q (D1 b) l m r s                        = Q (D2 a b) l m r s -- not 2 exposed
 a <| Q (D2 b c) l m r s                      = dcons (D1 a) (P b c) l m r s
 
-dcons :: D a -> P a -> L (P a) b -> Q b -> R b (P a) -> D a -> Q a
+dcons :: D r f g -> P r e f -> L (P r) m d e -> Q m c d -> R m (P r) b c -> D r a b -> Q r a g
 dcons p a NL Q0 NR s = Q p NL (Q1 a) NR s
 dcons p a NL (Q1 b) NR s = Q p (L a NL) Q0 (R NR b) s
 dcons p a NL (Q D0 l' m' r' (D1 b)) NR s = Q p (L a l') m' (R r' b) s
