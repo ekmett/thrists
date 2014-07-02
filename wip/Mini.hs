@@ -47,19 +47,35 @@ dcons _ _ NL (Q D2{} _ _ _ _)           _   _ = error "non-regular"
 dcons p a (L b l) m (R r c) s = Q p NL (Q (D2 a b) l m r (D1 c)) NR s
 dcons _ _ L{}     _ NR      _ = error "impossible"
 
+doubleton :: r b c -> r a b -> Q r a c
+doubleton a b = Q (D1 a) NL Q0 NR (D1 b)
+
+triple :: r c d -> r b c -> r a b -> Q r a d
+triple a b c = Q (D1 a) NL Q0 NR (D2 b c)
+
 instance Uncons Q where
   uncons Q0 = Empty
   uncons (Q1 a)                         = a :| Q0
-  uncons (Q (D1 a)   NL Q0 NR (D1 b))   = a :| Q1 b
-  uncons (Q (D1 a)   NL Q0 NR (D2 b c)) = a :| Q (D1 b) NL Q0 NR (D1 c)
-  uncons (Q (D2 a b) l  m  r  s)        = a :| Q (D1 b) l  m  r  s
-  uncons (Q D0 l m r s) = case nuncons (dip l m r) of
+  uncons (Q D0 (L a l) m (R r b) s) = case nuncons (Q (D1 a) l m r (D1 b)) of
+    Empty -> error "impossible"
+    P c d :| m'' -> c :| deep (D1 d) m'' s
+  uncons (Q D0 NL m NR s) = case nuncons m of
     Empty -> error "non-regular"
     P b c :| m'' -> b :| deep (D1 c) m'' s
   uncons (Q (D1 a) l (Q D0 l' m' r' D0) r s) = case nuncons (dip l' m' r') of
     Empty -> a :| Q D0 l Q0 r s
     P b c :| m'' -> a :| Q D0 l (deep (D2 b c) m'' D0) r s -- D1 under D1 but only at bottom
+  uncons (Q (D1 a) NL Q0 NR (D1 b))   = a :| Q1 b
+  uncons (Q (D1 a) NL Q0 NR (D2 b c)) = a :| doubleton b c
   uncons (Q (D1 a) l m r s) = a :| Q D0 l m r s
+  uncons (Q (D2 a b) l  m  r  s) = a :| Q (D1 b) l m r s
+  uncons (Q _ L{} _ NR _) = error "impossible"
+  uncons (Q _ NL _ R{} _) = error "impossible"
+
+  -- uncons (Q D0 NL Q0 NR _s) = error "non-regular"
+  -- uncons (Q D0 NL (Q1 (P a b)) NR s)                                 = a :| deep (D1 b) Q0 s
+  -- uncons (Q D0 NL (Q (D1 (P a b)) NL Q0 NR (D1 (P c d))) NR D0)      = a :| triple b c d
+  -- uncons (Q D0 NL (Q (D1 (P a b)) NL Q0 NR (D1 (P c d))) NR (D1 e))  = a :| Q (D2 b c) NL Q0 NR (D2 d e)
 
 -- extract from a non-0-exposed queue
 nuncons :: Q r a c -> View r (Q r) a c
