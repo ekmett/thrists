@@ -36,16 +36,32 @@ instance Cons Q where
   a <| Q (D1 b) l m r s                        = Q (D2 a b) l m r s -- not 2 exposed
   a <| Q (D2 b c) l m r s                      = dcons (D1 a) (P b c) l m r s
 
+instance Snoc Q where
+  Q0 |> a                                      = Q1 a
+  Q1 a |> b                                    = Q (D1 a) NL Q0 NR (D1 b)
+  Q p l m r D0 |> a                            = Q p l m r (D1 a)
+  Q p l (Q p' l' m' r' (D2 a b)) r (D1 c) |> d = Q p l (dsnoc p' l' m' r' (P a b) D0) r (D2 c d)
+  Q p l m r (D1 a) |> b                        = Q p l m r (D2 a b)
+  Q p l m r (D2 a b) |> c                      = dsnoc p l m r (P a b) (D1 c)
+
+
 dcons :: D r f g -> P r e f -> L (P r) m d e -> Q m c d -> R m (P r) b c -> D r a b -> Q r a g
-dcons p a NL Q0                         NR  s = Q p NL (Q1 a) NR s
-dcons p a NL (Q1 b                    ) NR  s = Q p (L a NL) Q0 (R NR b) s
-dcons p a NL (Q D0     l' m' r' (D1 b)) NR  s = Q p (L a l') m' (R r' b) s
-dcons p a NL (Q D0     l' m' r' s'    ) NR  s = Q p NL (Q (D1 a) l' m' r' s') NR s
-dcons p a NL (Q (D1 b) l' m' r' s'    ) NR  s = Q p NL (Q (D2 a b) l' m' r' s') NR s
-dcons _ _ NL _                          R{} _ = error "impossible"
-dcons _ _ NL (Q D2{} _ _ _ _)           _   _ = error "non-regular"
+dcons p a NL Q0 NR s = Q p NL (Q1 a) NR s
+dcons p a NL (Q1 b) NR s = Q p (L a NL) Q0 (R NR b) s
+dcons p a NL (Q D0 l' m' r' (D1 b)) NR s = Q p (L a l') m' (R r' b) s
+dcons p a NL (Q D0 l' m' r' s') NR s = Q p NL (Q (D1 a) l' m' r' s') NR s
+dcons p a NL (Q (D1 b) l' m' r' s') NR  s = Q p NL (Q (D2 a b) l' m' r' s') NR s
+dcons _ _ NL _ R{} _ = error "impossible"
+dcons _ _ NL (Q D2{} _ _ _ _) _ _ = error "non-regular"
 dcons p a (L b l) m (R r c) s = Q p NL (Q (D2 a b) l m r (D1 c)) NR s
-dcons _ _ L{}     _ NR      _ = error "impossible"
+dcons _ _ L{} _ NR _ = error "impossible"
+
+dsnoc :: D r f g -> L (P r) m e f -> Q m d e -> R m (P r) c d -> P r b c -> D r a b -> Q r a g
+dsnoc p NL Q0 NR a s = Q p NL (Q1 a) NR s
+dsnoc p NL (Q1 a) NR b s = Q p (L a NL) Q0 (R NR b) s
+dsnoc p NL (Q (D1 a) l' m' r' D0) NR b s = Q p (L a l') m' (R r' b) s
+dsnoc p NL (Q p' l' m' r' D0) NR a s = Q p NL (Q p' l' m' r' (D1 a)) NR s
+dsnoc _ _ _ _ _ _ = undefined -- TODO: finish
 
 double :: r b c -> r a b -> Q r a c
 double a b = Q (D1 a) NL Q0 NR (D1 b)
